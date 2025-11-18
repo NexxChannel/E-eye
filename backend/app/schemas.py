@@ -11,8 +11,8 @@ class UserCreate(UserBase):
 
 class UserOut(UserBase):
     id: int
-    is_active: bool
-    subscription_level: str
+    isActive: bool
+    subscriptionLevel: str
 
     class Config:
         orm_mode = True
