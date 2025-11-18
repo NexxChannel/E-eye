@@ -7,6 +7,6 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True, nullable=False)
-    hashed_password = Column(String, nullable=False)
-    is_active = Column(Boolean, default=True)
-    subscription_level = Column(String, default="free")
+    hashedPassword = Column(String, nullable=False)
+    isActive = Column(Boolean, default=True)
+    subscriptionLevel = Column(String, default="free")
