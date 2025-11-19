@@ -21,7 +21,7 @@ def healthCheck():
 
 @app.post("/users", response_model=schemas.UserOut, status_code=status.HTTP_201_CREATED)
 def registerUser(userIn: schemas.UserCreate, db: Session = Depends(getDb)):
-    dbUser = crud.gerUserByEmail(db, email=userIn.email)
+    dbUser = crud.getUserByEmail(db, email=userIn.email)
     if dbUser:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -29,3 +29,15 @@ def registerUser(userIn: schemas.UserCreate, db: Session = Depends(getDb)):
         )
     newUser = crud.createUser(db, userIn)
     return newUser
+
+@app.post("/auth/login")
+def loginUser(userIn: schemas.UserLogin, db: Session = Depends(getDb)):
+    dbUser = crud.getUserByEmail(db, email=userIn.email)
+
+    if dbUser and crud.verifyPassword(dbUser.hashedPassword, userIn.password):
+        return "Login Success!"
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password"
+        )

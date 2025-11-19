@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, ConfigDict
 
 
 class UserBase(BaseModel):
@@ -14,5 +14,8 @@ class UserOut(UserBase):
     isActive: bool
     subscriptionLevel: str
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
+
+
+class UserLogin(UserBase):
+    password: str
