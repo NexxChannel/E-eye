@@ -35,7 +35,9 @@ def loginUser(userIn: schemas.UserLogin, db: Session = Depends(getDb)):
     dbUser = crud.getUserByEmail(db, email=userIn.email)
 
     if dbUser and crud.verifyPassword(dbUser.hashedPassword, userIn.password):
-        return "Login Success!"
+        accessToken = crud.createAccessToken(dbUser)
+
+        return {"accessToken": accessToken, "tokenType": "Bearer"}
     else:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

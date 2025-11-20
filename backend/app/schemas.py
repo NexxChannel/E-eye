@@ -19,3 +19,8 @@ class UserOut(UserBase):
 
 class UserLogin(UserBase):
     password: str
+    # role: str
+
+class Token(BaseModel):
+    accessToken: str
+    tokenType: str

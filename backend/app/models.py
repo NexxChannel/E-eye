@@ -10,3 +10,4 @@ class User(Base):
     hashedPassword = Column(String, nullable=False)
     isActive = Column(Boolean, default=True)
     subscriptionLevel = Column(String, default="free")
+    role = Column(String, default="user")
