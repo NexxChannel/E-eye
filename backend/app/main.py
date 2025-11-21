@@ -1,3 +1,5 @@
+import hmac
+
 from fastapi import FastAPI, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -42,4 +44,21 @@ def loginUser(userIn: schemas.UserLogin, db: Session = Depends(getDb)):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password"
+        )
+
+@app.post("/auth/info")
+def veriftUser(userIn: schemas.Token, db: Session = Depends(getDb)):
+    if not hmac.compare_digest(userIn.tokenType, "Bearer"):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token type"
+        )
+
+    user = crud.verifyPassword(userIn.accessToken, db)
+    if user:
+        return user
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token"
         )
