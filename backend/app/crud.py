@@ -41,7 +41,7 @@ def _encodeBase64url(data: bytes) -> str:
     encoded = base64.urlsafe_b64encode(data)
     return encoded.rstrip(b"=").decode("ascii")
 
-def _decodeBase64url(encoded: bytes) -> str:
+def _decodeBase64url(encoded: str) -> bytes:
     encoded += "=" * (-len(encoded) % 4)
     return base64.urlsafe_b64decode(encoded.encode("ascii"))
 
@@ -100,8 +100,8 @@ def verifyAccessToken(token: str, db: Session) -> models.User | None:
 
     headerB64, payloadB64, signatureB64 = parts
 
-    header = json.loads(_decodeBase64url(bytes(headerB64)))
-    payload = json.loads(_decodeBase64url(bytes(payloadB64)))
+    header = json.loads(_decodeBase64url(headerB64))
+    payload = json.loads(_decodeBase64url(payloadB64))
 
     now = datetime.now(UTC)
     if now.timestamp() > payload["exp"]:
@@ -117,7 +117,7 @@ def verifyAccessToken(token: str, db: Session) -> models.User | None:
         hashlib.sha256
     ).digest()
 
-    if not hmac.compare_digest(signature, _decodeBase64url(bytes(signatureB64))) :
+    if not hmac.compare_digest(signature, _decodeBase64url(signatureB64)):
         return
 
     return db.query(models.User).filter(models.User.id == payload["sub"]).first()
