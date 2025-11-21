@@ -43,7 +43,7 @@ def _encodeBase64url(data: bytes) -> str:
 
 def _decodeBase64url(encoded: bytes) -> str:
     encoded += "=" * (-len(encoded) % 4)
-    return base64.urlsafe_b64decode(s.encode("ascii"))
+    return base64.urlsafe_b64decode(encoded.encode("ascii"))
 
 def _payloadFromUser(data: models.User | dict[str, Any]) -> dict[str, Any]:
     if isinstance(data, dict):
