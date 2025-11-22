@@ -7,8 +7,9 @@ import json
 import base64
 import hmac
 import hashlib
+import os
 
-JWT_SECRET = "E-eye"
+JWT_SECRET = os.environ.get("JWT_SECRET", "E-eye")
 JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTS = 120
 
