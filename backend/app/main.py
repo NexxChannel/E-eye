@@ -46,7 +46,7 @@ def loginUser(userIn: schemas.UserLogin, db: Session = Depends(getDb)):
             detail="Incorrect email or password"
         )
 
-@app.post("/auth/info")
+@app.post("/me")
 def veriftUser(userIn: schemas.Token, db: Session = Depends(getDb)):
     if not hmac.compare_digest(userIn.tokenType, "Bearer"):
         raise HTTPException(
@@ -55,10 +55,10 @@ def veriftUser(userIn: schemas.Token, db: Session = Depends(getDb)):
         )
 
     user = crud.verifyAccessToken(userIn.accessToken, db)
-    if user:
+    if type(user) == models.User:
         return user
     else:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token"
+            detail=user
         )

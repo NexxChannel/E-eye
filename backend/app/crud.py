@@ -93,10 +93,10 @@ def createAccessToken(data: models.User | dict[str, Any], expiresMinutes: int | 
 
     return f"{signingInput}.{signatureEncoded}"
 
-def verifyAccessToken(token: str, db: Session) -> models.User | None:
+def verifyAccessToken(token: str, db: Session) -> models.User | str:
     parts = token.split(".")
     if len(parts) != 3:
-        return
+        return "Illegal format"
 
     headerB64, payloadB64, signatureB64 = parts
 
@@ -105,10 +105,10 @@ def verifyAccessToken(token: str, db: Session) -> models.User | None:
 
     now = datetime.now(UTC)
     if now.timestamp() > payload["exp"]:
-        return
+        return "Expired token"
 
     if header["alg"] != "HS256":
-        return
+        return "Illegal format"
 
     signatureInput = f"{headerB64}.{payloadB64}"
     signature = hmac.new(
@@ -118,6 +118,6 @@ def verifyAccessToken(token: str, db: Session) -> models.User | None:
     ).digest()
 
     if not hmac.compare_digest(signature, _decodeBase64url(signatureB64)):
-        return
+        return "Has been changed"
 
     return db.query(models.User).filter(models.User.id == payload["sub"]).first()
