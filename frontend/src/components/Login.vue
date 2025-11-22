@@ -8,7 +8,7 @@
       </div>
       <div class="form-group">
         <label>Password</label>
-        <input v-model="password" type="password" required placeholder="Enter password" />
+        <input v-model="password" type="password" required minlength="8" placeholder="Enter password" />
       </div>
       <button type="submit" :disabled="loading">
         {{ loading ? 'Logging in...' : 'Login' }}
@@ -45,7 +45,14 @@ const login = async () => {
     emit('login-success', token)
   } catch (error) {
     isError.value = true
-    message.value = error.response?.data?.detail || 'Login failed'
+    if (error.response?.status === 422) {
+       const detail = error.response.data.detail
+       message.value = Array.isArray(detail) 
+         ? detail.map(e => e.msg).join(', ') 
+         : detail
+    } else {
+       message.value = error.response?.data?.detail || 'Login failed'
+    }
   } finally {
     loading.value = false
   }

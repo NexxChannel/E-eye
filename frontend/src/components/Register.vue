@@ -8,7 +8,7 @@
       </div>
       <div class="form-group">
         <label>Password</label>
-        <input v-model="password" type="password" required placeholder="Enter password" />
+        <input v-model="password" type="password" required minlength="8" placeholder="Enter password (min 8 chars)" />
       </div>
       <button type="submit" :disabled="loading">
         {{ loading ? 'Registering...' : 'Register' }}
@@ -43,7 +43,14 @@ const register = async () => {
     password.value = ''
   } catch (error) {
     isError.value = true
-    message.value = error.response?.data?.detail || 'Registration failed'
+    if (error.response?.status === 422) {
+       const detail = error.response.data.detail
+       message.value = Array.isArray(detail) 
+         ? detail.map(e => e.msg).join(', ') 
+         : detail
+    } else {
+       message.value = error.response?.data?.detail || 'Registration failed'
+    }
   } finally {
     loading.value = false
   }

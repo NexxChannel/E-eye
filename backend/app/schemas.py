@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, ConfigDict
+from pydantic import BaseModel, EmailStr, ConfigDict, Field
 
 
 class UserBase(BaseModel):
@@ -6,7 +6,7 @@ class UserBase(BaseModel):
 
 
 class UserCreate(UserBase):
-    password: str
+    password: str = Field(min_length=8)
 
 
 class UserOut(UserBase):
@@ -18,7 +18,7 @@ class UserOut(UserBase):
 
 
 class UserLogin(UserBase):
-    password: str
+    password: str = Field(min_length=8)
     # role: str
 
 class Token(BaseModel):
