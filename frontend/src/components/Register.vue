@@ -73,6 +73,12 @@ h2 {
   -webkit-text-fill-color: transparent;
 }
 
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
 .form-group {
   display: flex;
   flex-direction: column;
