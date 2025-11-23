@@ -96,7 +96,7 @@ def createAccessToken(data: models.User | dict[str, Any], expiresMinutes: int | 
 
     return f"{signingInput}.{signatureEncoded}"
 
-def verifyAccessToken(token: str, db: Session) -> models.User | str | None:
+def getCurrentUser(token: str, db: Session) -> models.User | str | None:
     parts = token.split(".")
     if len(parts) != 3:
         return "Illegal format"

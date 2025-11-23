@@ -54,7 +54,7 @@ def veriftUser(userIn: schemas.Token, db: Session = Depends(getDb)):
             detail="Invalid token type"
         )
 
-    user = crud.verifyAccessToken(userIn.accessToken, db)
+    user = crud.getCurrentUser(userIn.accessToken, db)
     if type(user) == models.User:
         return user
     else:
