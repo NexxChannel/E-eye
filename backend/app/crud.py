@@ -9,6 +9,8 @@ import hmac
 import hashlib
 import os
 
+from .schemas import ProjectCreate
+
 JWT_SECRET = os.environ.get("JWT_SECRET", "E-eye")
 JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTS = 120
@@ -94,7 +96,7 @@ def createAccessToken(data: models.User | dict[str, Any], expiresMinutes: int | 
 
     return f"{signingInput}.{signatureEncoded}"
 
-def verifyAccessToken(token: str, db: Session) -> models.User | str:
+def verifyAccessToken(token: str, db: Session) -> models.User | str | None:
     parts = token.split(".")
     if len(parts) != 3:
         return "Illegal format"
@@ -122,3 +124,29 @@ def verifyAccessToken(token: str, db: Session) -> models.User | str:
         return "Has been changed"
 
     return db.query(models.User).filter(models.User.id == payload["sub"]).first()
+
+def createProject(db: Session, ownerId: int, projectIn: ProjectCreate) -> models.Project:
+    project = models.Project(name=projectIn.name, ownerId=ownerId)
+
+    db.add(project)
+    db.commit()
+    db.refresh(project)
+
+    return project
+
+def listProjectsByOwner(db: Session, ownerId: int) -> list[models.Project]:
+    return (
+        db.query(models.Project)
+        .filter(models.Project.ownerId == ownerId)
+        .order_by(models.Project.id.desc())
+        .all()
+    )
+def getProjectByIdAndOwner(db: Session, projectId: int, ownerId: int) -> models.Project | None:
+    return (
+        db.query(models.Project)
+        .filter(
+            models.Project.id == projectId,
+            models.Project.ownerId == ownerId
+        )
+        .first()
+    )
