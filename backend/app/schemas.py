@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, EmailStr, ConfigDict, Field
 
 
@@ -24,3 +26,16 @@ class UserLogin(UserBase):
 class Token(BaseModel):
     accessToken: str
     tokenType: str
+
+class ProjectBase(BaseModel):
+    name: str
+
+class ProjectCreate(ProjectBase):
+    pass
+
+class ProjectOut(ProjectBase):
+    id: int
+    createdAt: datetime
+    ownerId: int
+
+    model_config = ConfigDict(from_attributes=True)
