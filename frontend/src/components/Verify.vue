@@ -51,9 +51,10 @@ const verify = async () => {
   userData.value = null
   
   try {
-    const response = await axios.post('/me', {
-      accessToken: token.value,
-      tokenType: 'Bearer'
+    const response = await axios.post('/me', {}, {
+      headers: {
+        'Authorization': `Bearer ${token.value}`
+      }
     })
     userData.value = response.data
     message.value = 'Verification successful!'

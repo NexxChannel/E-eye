@@ -1,6 +1,7 @@
 import hmac
 
 from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from . import models, schemas, crud
@@ -9,6 +10,7 @@ from .database import engine, SessionLocal, Base
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="E-eye MVP API")
+authScheme = HTTPBearer(auto_error=False)
 
 def getDb():
     db = SessionLocal()
@@ -46,19 +48,36 @@ def loginUser(userIn: schemas.UserLogin, db: Session = Depends(getDb)):
             detail="Incorrect email or password"
         )
 
-@app.post("/me")
-def veriftUser(userIn: schemas.Token, db: Session = Depends(getDb)):
-    if not hmac.compare_digest(userIn.tokenType, "Bearer"):
+def getCurrentUser(
+    credentials: HTTPAuthorizationCredentials = Depends(authScheme),
+    db: Session = Depends(getDb),
+) -> models.User:
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing authentication credentials"
+        )
+
+    token = schemas.Token(
+        accessToken=credentials.credentials,
+        tokenType=credentials.scheme
+    )
+
+    if not hmac.compare_digest(token.tokenType, "Bearer"):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token type"
         )
 
-    user = crud.getCurrentUser(userIn.accessToken, db)
-    if type(user) == models.User:
+    user = crud.getCurrentUser(token.accessToken, db)
+    if isinstance(user, models.User):
         return user
-    else:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=user
-        )
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail=user or "Invalid token"
+    )
+
+@app.post("/me")
+def veriftUser(currentUser: models.User = Depends(getCurrentUser)):
+    return currentUser
