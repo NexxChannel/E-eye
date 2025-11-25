@@ -72,23 +72,38 @@ const fetchProjects = async () => {
 }
 
 const createProject = async () => {
-  if (!props.token || !newProjectName.value.trim()) return
+  console.log('createProject called, token:', props.token ? 'exists' : 'missing')
+  
+  if (!props.token) {
+    isError.value = true
+    message.value = 'Please login first to create projects'
+    return
+  }
+  
+  if (!newProjectName.value.trim()) {
+    isError.value = true
+    message.value = 'Project name is required'
+    return
+  }
   
   loading.value = true
   message.value = ''
   isError.value = false
   
   try {
+    console.log('Sending request to /projects/create')
     const response = await api.post('/projects/create', 
       { name: newProjectName.value.trim() },
       getAuthHeaders()
     )
+    console.log('Response:', response.data)
     message.value = `Project "${response.data.name}" created!`
     newProjectName.value = ''
     await fetchProjects()
   } catch (error) {
+    console.error('Create project error:', error)
     isError.value = true
-    message.value = error.response?.data?.detail || 'Failed to create project'
+    message.value = error.response?.data?.detail || error.message || 'Failed to create project'
   } finally {
     loading.value = false
   }
