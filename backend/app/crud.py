@@ -180,7 +180,7 @@ def listProjectsByOwner(db: Session, ownerId: int) -> list[models.Project]:
     return (
         db.query(models.Project)
         .filter(models.Project.ownerId == ownerId)
-        .order_by(models.Project.id.desc())
+        .order_by(models.Project.createdAt.desc())
         .all()
     )
 

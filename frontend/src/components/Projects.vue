@@ -62,7 +62,10 @@ const fetchProjects = async () => {
   loading.value = true
   try {
     const response = await api.get('/projects', getAuthHeaders())
-    projects.value = response.data
+    let projectsData = response.data || []
+    // sort by createdAt desc (newest first)
+    projectsData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    projects.value = projectsData
     hasFetched.value = true
   } catch (error) {
     console.error('Failed to fetch projects:', error)
