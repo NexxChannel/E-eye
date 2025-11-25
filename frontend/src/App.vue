@@ -10,6 +10,7 @@
         <Register />
         <Login @login-success="handleLoginSuccess" />
         <Verify :initial-token="accessToken" />
+        <Projects :token="accessToken" />
       </div>
     </main>
   </div>
@@ -20,6 +21,7 @@ import { ref } from 'vue'
 import Register from './components/Register.vue'
 import Login from './components/Login.vue'
 import Verify from './components/Verify.vue'
+import Projects from './components/Projects.vue'
 
 const accessToken = ref('')
 
