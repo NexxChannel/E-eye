@@ -20,7 +20,7 @@
 
 <script setup>
 import { ref } from 'vue'
-import axios from 'axios'
+import api from '../services/api'
 
 const emit = defineEmits(['login-success'])
 
@@ -36,7 +36,7 @@ const login = async () => {
   isError.value = false
   
   try {
-    const response = await axios.post('/auth/login', {
+  const response = await api.post('/auth/login', {
       email: email.value,
       password: password.value
     })

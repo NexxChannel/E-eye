@@ -20,7 +20,7 @@
 
 <script setup>
 import { ref } from 'vue'
-import axios from 'axios'
+import api from '../services/api'
 
 const email = ref('')
 const password = ref('')
@@ -34,7 +34,7 @@ const register = async () => {
   isError.value = false
   
   try {
-    const response = await axios.post('/users', {
+  const response = await api.post('/users', {
       email: email.value,
       password: password.value
     })

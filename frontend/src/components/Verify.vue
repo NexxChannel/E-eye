@@ -22,7 +22,7 @@
 
 <script setup>
 import { ref, watch } from 'vue'
-import axios from 'axios'
+import api from '../services/api'
 
 const props = defineProps({
   initialToken: String
@@ -51,7 +51,7 @@ const verify = async () => {
   userData.value = null
   
   try {
-    const response = await axios.post('/me', {}, {
+    const response = await api.get('/me', {
       headers: {
         'Authorization': `Bearer ${token.value}`
       }
