@@ -12,14 +12,16 @@
 
         <div v-if="userData" class="user-data structured">
           <h3>User Details</h3>
-          <dl>
-            <div class="row"><dt>ID</dt><dd>{{ filteredUser.id }}</dd></div>
-            <div class="row"><dt>Email</dt><dd>{{ filteredUser.email }}</dd></div>
-            <div class="row"><dt>Role</dt><dd>{{ filteredUser.role || 'user' }}</dd></div>
-            <div class="row"><dt>Subscription</dt><dd>{{ filteredUser.subscriptionLevel || 'free' }}</dd></div>
-            <div class="row"><dt>Active</dt><dd>{{ filteredUser.isActive ? 'Yes' : 'No' }}</dd></div>
-            <div v-if="filteredUser.createdAt" class="row"><dt>Created</dt><dd>{{ formatDate(filteredUser.createdAt) }}</dd></div>
-          </dl>
+          <table class="user-table">
+            <tbody>
+              <tr><th>ID</th><td>{{ filteredUser.id }}</td></tr>
+              <tr><th>Email</th><td>{{ filteredUser.email }}</td></tr>
+              <tr><th>Role</th><td>{{ filteredUser.role || 'user' }}</td></tr>
+              <tr><th>Subscription</th><td>{{ filteredUser.subscriptionLevel || 'free' }}</td></tr>
+              <tr><th>Active</th><td>{{ filteredUser.isActive ? 'Yes' : 'No' }}</td></tr>
+              <tr v-if="filteredUser.createdAt"><th>Created</th><td>{{ formatDate(filteredUser.createdAt) }}</td></tr>
+            </tbody>
+          </table>
 
           <div v-if="projectsList.length" class="projects-summary">
             <h4>Projects</h4>
@@ -87,7 +89,10 @@ const verify = async () => {
       const projResp = await api.get('/projects', {
         headers: { 'Authorization': `Bearer ${token.value}` }
       })
-      projectsList.value = projResp.data || []
+      const arr = projResp.data || []
+      // sort by createdAt desc (newest first)
+      arr.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      projectsList.value = arr
     } catch (e) {
       // ignore projects fetch errors here
       projectsList.value = []
@@ -206,6 +211,22 @@ pre {
   margin: 0;
   font-size: 0.875rem;
   color: #aaa;
+}
+
+.user-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.user-table th {
+  text-align: left;
+  vertical-align: top;
+  padding: 0.25rem 0.5rem 0.25rem 0;
+  color: #ccc;
+  width: 35%;
+}
+.user-table td {
+  padding: 0.25rem 0.5rem;
+  color: #fff;
 }
 
 .message {
