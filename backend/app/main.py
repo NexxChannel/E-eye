@@ -115,3 +115,40 @@ def getCurrentUser(
 @app.get("/me")
 def verifyUser(currentUser: models.User = Depends(getCurrentUser)):
     return currentUser
+
+
+@app.post(
+    "/projects/create",
+    response_model=schemas.ProjectOut,
+    status_code=status.HTTP_201_CREATED,
+)
+def createProject(
+    projectIn: schemas.ProjectCreate,
+    currentUser: models.User = Depends(getCurrentUser),
+    db: Session = Depends(getDb),
+):
+    return crud.createProject(db=db, ownerId=currentUser.id, projectIn=projectIn)
+
+
+@app.get("/projects", response_model=list[schemas.ProjectOut])
+def listProjects(
+    currentUser: models.User = Depends(getCurrentUser),
+    db: Session = Depends(getDb),
+):
+    return crud.listProjectsByOwner(db=db, ownerId=currentUser.id)
+
+
+@app.get("/projects/{projectId}", response_model=schemas.ProjectOut)
+def getProject(
+    projectId: int,
+    currentUser: models.User = Depends(getCurrentUser),
+    db: Session = Depends(getDb),
+):
+    project = crud.getProjectByIdAndOwner(
+        db=db, projectId=projectId, ownerId=currentUser.id
+    )
+    if project is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Project not found"
+        )
+    return project
