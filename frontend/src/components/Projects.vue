@@ -31,7 +31,14 @@
     <div v-if="selectedProject" class="project-detail">
       <h3>Project Details</h3>
       <button class="close-btn" @click="selectedProject = null">&times;</button>
-      <pre>{{ JSON.stringify(selectedProject, null, 2) }}</pre>
+      <table class="project-table">
+        <tbody>
+          <tr><th>Name</th><td>{{ selectedProject.name }}</td></tr>
+          <tr><th>ID</th><td>{{ selectedProject.id }}</td></tr>
+          <tr><th>Owner</th><td>{{ ownerEmail }}</td></tr>
+          <tr><th>Created At</th><td>{{ formatFullDate(selectedProject.createdAt) }}</td></tr>
+        </tbody>
+      </table>
     </div>
   </div>
 </template>
@@ -47,6 +54,7 @@ const props = defineProps({
 const newProjectName = ref('')
 const projects = ref([])
 const selectedProject = ref(null)
+const ownerEmail = ref('')
 const message = ref('')
 const isError = ref(false)
 const loading = ref(false)
@@ -114,10 +122,16 @@ const createProject = async () => {
 
 const viewProject = async (projectId) => {
   if (!props.token) return
-  
   try {
     const response = await api.get(`/projects/${projectId}`, getAuthHeaders())
     selectedProject.value = response.data
+    // fetch user info for email
+    try {
+      const userResp = await api.get('/me', getAuthHeaders())
+      ownerEmail.value = userResp.data.email || userResp.data.id || ''
+    } catch (e) {
+      ownerEmail.value = selectedProject.value.ownerId
+    }
   } catch (error) {
     isError.value = true
     message.value = error.response?.data?.detail || 'Failed to load project'
@@ -126,6 +140,13 @@ const viewProject = async (projectId) => {
 
 const formatDate = (dateString) => {
   return new Date(dateString).toLocaleDateString()
+}
+const formatFullDate = (dateString) => {
+  try {
+    return new Date(dateString).toLocaleString()
+  } catch (_e) {
+    return dateString
+  }
 }
 
 watch(() => props.token, (newToken) => {
@@ -298,11 +319,21 @@ button:disabled {
   text-align: left;
 }
 
-.project-detail pre {
-  margin: 0.5rem 0 0 0;
-  font-size: 0.75rem;
-  color: #aaa;
-  overflow-x: auto;
+.project-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.5rem;
+}
+.project-table th {
+  text-align: left;
+  vertical-align: top;
+  padding: 0.25rem 0.5rem 0.25rem 0;
+  color: #ccc;
+  width: 35%;
+}
+.project-table td {
+  padding: 0.25rem 0.5rem;
+  color: #fff;
 }
 
 .close-btn {
