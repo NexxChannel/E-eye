@@ -49,11 +49,12 @@
         <ul>
           <li v-for="d in drawings" :key="d.id" class="drawing-item">
             <div class="left">
-              <span class="drawing-name" @dblclick="openPreview(d)">{{ d.name }}</span>
+              <span class="drawing-name" @click="openPreview(d)">{{ d.name }}</span>
               <span class="drawing-date">{{ formatDate(d.createdAt) }}</span>
             </div>
             <div class="right">
-              <button class="delete-btn" @click="deleteDrawing(d.id)">Delete</button>
+              <button class="preview-btn" @click.stop="openPreview(d)">Preview</button>
+              <button class="delete-btn" @click.stop="deleteDrawing(d.id)">Delete</button>
             </div>
           </li>
         </ul>
@@ -285,10 +286,20 @@ const formatFullDate = (dateString) => {
 }
 
 const openPreview = (d) => {
-  if (!d) return
-  // ensure filePath is absolute
-  const filePath = d.filePath && d.filePath.startsWith('/') ? `${api.defaults.baseURL.replace(/\/$/, '')}${d.filePath}` : d.filePath
+  console.log('📸 openPreview called with drawing:', d)
+  if (!d || !d.filePath) {
+    console.warn('Drawing missing or no filePath:', d)
+    return
+  }
+  // resolve file path to absolute URL
+  let filePath = d.filePath
+  if (filePath.startsWith('/')) {
+    const base = api.defaults?.baseURL || 'http://localhost:8000'
+    filePath = `${base.replace(/\/$/, '')}${filePath}`
+  }
+  console.log('📸 resolved filePath:', filePath)
   previewDrawing.value = { ...d, filePath }
+  console.log('📸 previewDrawing set:', previewDrawing.value)
 }
 
 watch(() => props.token, (newToken) => {
@@ -522,6 +533,8 @@ button:disabled {
 .drawing-item:hover { background: rgba(0,0,0,0.25); }
 .form-row { display: flex; gap: 0.5rem; align-items: center; }
 .form-row input[type="file"] { padding: 0.25rem; }
+.preview-btn { background: transparent; color: #64b5f6; border: 1px solid rgba(100,181,246,0.15); padding: 0.25rem 0.5rem; border-radius: 6px; margin-right: 0.25rem; }
+.preview-btn:hover { background: rgba(100,181,246,0.08); }
 .delete-btn { background: transparent; color: #ff6b6b; border: 1px solid rgba(255,107,107,0.15); padding: 0.25rem 0.5rem; border-radius: 6px; }
 .delete-btn:hover { background: rgba(255,107,107,0.08); }
 .image-modal {
