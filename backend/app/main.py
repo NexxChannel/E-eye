@@ -222,3 +222,18 @@ def createDrawing(
         db=db, projectId=projectId, drawingIn=drawingIn.model_dump()
     )
     return drawing
+
+
+@app.get("/me/drawings", response_model=list[schemas.DrawingOut])
+def myDrawings(
+    currentUser: models.User = Depends(getCurrentUser), db: Session = Depends(getDb)
+):
+    # return all drawings for projects owned by current user
+    projects = crud.listProjectsByOwner(db, ownerId=currentUser.id)
+    all_drawings = []
+    for p in projects:
+        ds = crud.listDrawingsByProject(db, projectId=p.id)
+        all_drawings.extend(ds)
+    # sort by createdAt desc
+    all_drawings.sort(key=lambda d: d.createdAt, reverse=True)
+    return all_drawings

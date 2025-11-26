@@ -39,6 +39,23 @@
           <tr><th>Created At</th><td>{{ formatFullDate(selectedProject.createdAt) }}</td></tr>
         </tbody>
       </table>
+      <div class="drawings-list" v-if="drawings.length">
+        <h4>Your Drawings</h4>
+        <ul>
+          <li v-for="d in drawings" :key="d.id" @dblclick="previewDrawing = d" class="drawing-item">
+            <span class="drawing-name">{{ d.name }}</span>
+            <span class="drawing-date">{{ formatDate(d.createdAt) }}</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <div v-if="previewDrawing" class="image-modal">
+      <div class="image-container">
+        <button class="close-btn" @click="previewDrawing = null">&times;</button>
+        <img :src="previewDrawing.filePath" :alt="previewDrawing.name" />
+        <p class="caption">{{ previewDrawing.name }} — {{ formatFullDate(previewDrawing.createdAt) }}</p>
+      </div>
     </div>
   </div>
 </template>
@@ -55,6 +72,8 @@ const newProjectName = ref('')
 const projects = ref([])
 const selectedProject = ref(null)
 const ownerEmail = ref('')
+const drawings = ref([])
+const previewDrawing = ref(null)
 const message = ref('')
 const isError = ref(false)
 const loading = ref(false)
@@ -131,6 +150,15 @@ const viewProject = async (projectId) => {
       ownerEmail.value = userResp.data.email || userResp.data.id || ''
     } catch (e) {
       ownerEmail.value = selectedProject.value.ownerId
+    }
+    // fetch drawings for this project
+    try {
+      const dresp = await api.get(`/projects/${projectId}/drawings`, getAuthHeaders())
+      drawings.value = dresp.data || []
+      // ensure sorted by createdAt desc
+      drawings.value.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    } catch (e) {
+      drawings.value = []
     }
   } catch (error) {
     isError.value = true
@@ -352,4 +380,44 @@ button:disabled {
   color: #fff;
   background: transparent;
 }
+
+.drawings-list {
+  margin-top: 1rem;
+}
+.drawings-list ul {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0 0 0;
+}
+.drawing-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem;
+  background: rgba(0,0,0,0.15);
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+  cursor: pointer;
+}
+.drawing-item:hover { background: rgba(0,0,0,0.25); }
+.image-modal {
+  position: fixed;
+  left: 0; top: 0; right: 0; bottom: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.6);
+  z-index: 9999;
+}
+.image-container {
+  background: rgba(0,0,0,0.4);
+  padding: 1rem;
+  border-radius: 12px;
+  max-width: 90%;
+  max-height: 90%;
+}
+.image-container img {
+  max-width: 100%;
+  max-height: 70vh;
+  display: block;
+  margin: 0 auto;
+}
+.caption { color: #ddd; text-align: center; margin-top: 0.5rem; }
 </style>
