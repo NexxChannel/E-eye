@@ -3,6 +3,7 @@ import hmac
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 import os
 from sqlalchemy.orm import Session
 
@@ -26,6 +27,17 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# serve static files (e.g. uploaded drawings)
+static_dir = os.path.join(os.path.dirname(__file__), "..", "static")
+static_dir = os.path.abspath(static_dir)
+if not os.path.exists(static_dir):
+    try:
+        os.makedirs(os.path.join(static_dir, "uploads"), exist_ok=True)
+    except Exception:
+        pass
+
+app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 
 def getDb():
@@ -152,3 +164,61 @@ def getProject(
             status_code=status.HTTP_404_NOT_FOUND, detail="Project not found"
         )
     return project
+
+
+@app.get("/projects/{projectId}/drawings", response_model=list[schemas.DrawingOut])
+def listDrawings(
+    projectId: int,
+    currentUser: models.User = Depends(getCurrentUser),
+    db: Session = Depends(getDb),
+):
+    project = crud.getProjectByIdAndOwner(
+        db=db, projectId=projectId, ownerId=currentUser.id
+    )
+    if project is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Project not found"
+        )
+    drawings = crud.listDrawingsByProject(db, projectId=projectId)
+    return drawings
+
+
+@app.get("/drawings/{drawingId}", response_model=schemas.DrawingOut)
+def getDrawing(
+    drawingId: int,
+    currentUser: models.User = Depends(getCurrentUser),
+    db: Session = Depends(getDb),
+):
+    drawing = crud.getDrawingById(db, drawingId=drawingId)
+    if drawing is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Drawing not found"
+        )
+    # ensure user owns the project
+    if drawing.project.ownerId != currentUser.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed")
+    return drawing
+
+
+@app.post(
+    "/projects/{projectId}/drawings",
+    response_model=schemas.DrawingOut,
+    status_code=status.HTTP_201_CREATED,
+)
+def createDrawing(
+    projectId: int,
+    drawingIn: schemas.DrawingCreate,
+    currentUser: models.User = Depends(getCurrentUser),
+    db: Session = Depends(getDb),
+):
+    project = crud.getProjectByIdAndOwner(
+        db=db, projectId=projectId, ownerId=currentUser.id
+    )
+    if project is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Project not found"
+        )
+    drawing = crud.createDrawing(
+        db=db, projectId=projectId, drawingIn=drawingIn.model_dump()
+    )
+    return drawing
