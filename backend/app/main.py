@@ -3,6 +3,8 @@ import hmac
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi import UploadFile, File, Form
 import os
 from sqlalchemy.orm import Session
 
@@ -26,6 +28,17 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# serve static files (e.g. uploaded drawings)
+static_dir = os.path.join(os.path.dirname(__file__), "..", "static")
+static_dir = os.path.abspath(static_dir)
+if not os.path.exists(static_dir):
+    try:
+        os.makedirs(os.path.join(static_dir, "uploads"), exist_ok=True)
+    except Exception:
+        pass
+
+app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 
 def getDb():
@@ -152,3 +165,215 @@ def getProject(
             status_code=status.HTTP_404_NOT_FOUND, detail="Project not found"
         )
     return project
+
+
+@app.get("/projects/{projectId}/drawings", response_model=list[schemas.DrawingOut])
+def listDrawings(
+    projectId: int,
+    currentUser: models.User = Depends(getCurrentUser),
+    db: Session = Depends(getDb),
+):
+    project = crud.getProjectByIdAndOwner(
+        db=db, projectId=projectId, ownerId=currentUser.id
+    )
+    if project is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Project not found"
+        )
+    drawings = crud.listDrawingsByProject(db, projectId=projectId)
+    return drawings
+
+
+@app.get("/drawings/{drawingId}", response_model=schemas.DrawingOut)
+def getDrawing(
+    drawingId: int,
+    currentUser: models.User = Depends(getCurrentUser),
+    db: Session = Depends(getDb),
+):
+    drawing = crud.getDrawingById(db, drawingId=drawingId)
+    if drawing is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Drawing not found"
+        )
+    # ensure user owns the project
+    if drawing.project.ownerId != currentUser.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed")
+    return drawing
+
+
+@app.post(
+    "/projects/{projectId}/drawings",
+    response_model=schemas.DrawingOut,
+    status_code=status.HTTP_201_CREATED,
+)
+def createDrawing(
+    projectId: int,
+    drawingIn: schemas.DrawingCreate,
+    currentUser: models.User = Depends(getCurrentUser),
+    db: Session = Depends(getDb),
+):
+    project = crud.getProjectByIdAndOwner(
+        db=db, projectId=projectId, ownerId=currentUser.id
+    )
+    if project is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Project not found"
+        )
+    drawing = crud.createDrawing(
+        db=db, projectId=projectId, drawingIn=drawingIn.model_dump()
+    )
+    return drawing
+
+
+@app.post("/projects/{projectId}/drawings/upload", response_model=schemas.DrawingOut)
+async def uploadDrawing(
+    projectId: int,
+    file: UploadFile = File(...),
+    name: str | None = Form(None),
+    currentUser: models.User = Depends(getCurrentUser),
+    db: Session = Depends(getDb),
+):
+    # validate project exists and belongs to user
+    project = crud.getProjectByIdAndOwner(
+        db=db, projectId=projectId, ownerId=currentUser.id
+    )
+    if project is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Project not found"
+        )
+
+    # validate file type
+    filename = file.filename
+    content_type = file.content_type
+    allowed = ("image/png", "image/jpeg", "image/jpg")
+    if content_type not in allowed:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported file type"
+        )
+
+    # save file to static/uploads with unique name
+    import uuid
+    from pathlib import Path
+    from PIL import Image
+
+    uploads_dir = Path(
+        os.path.join(os.path.dirname(__file__), "..", "static", "uploads")
+    ).resolve()
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+
+    ext = Path(filename).suffix or (".png" if content_type == "image/png" else ".jpg")
+    dest_name = f"{uuid.uuid4().hex}{ext}"
+    dest_path = uploads_dir / dest_name
+
+    # write file to disk
+    with open(dest_path, "wb") as f:
+        content = await file.read()
+        f.write(content)
+
+    # read image size
+    try:
+        img = Image.open(dest_path)
+        width, height = img.size
+    except Exception:
+        width = None
+        height = None
+
+    fileUrl = f"/static/uploads/{dest_name}"
+
+    drawing_data = {
+        "name": name or filename,
+        "filePath": fileUrl,
+        "width": width,
+        "height": height,
+        "scale": None,
+    }
+
+    drawing = crud.createDrawing(db=db, projectId=projectId, drawingIn=drawing_data)
+    return drawing
+
+
+@app.get("/me/drawings", response_model=list[schemas.DrawingOut])
+def myDrawings(
+    currentUser: models.User = Depends(getCurrentUser), db: Session = Depends(getDb)
+):
+    # return all drawings for projects owned by current user
+    projects = crud.listProjectsByOwner(db, ownerId=currentUser.id)
+    all_drawings = []
+    for p in projects:
+        ds = crud.listDrawingsByProject(db, projectId=p.id)
+        all_drawings.extend(ds)
+    # sort by createdAt desc
+    all_drawings.sort(key=lambda d: d.createdAt, reverse=True)
+    return all_drawings
+
+
+@app.delete("/drawings/{drawingId}")
+def deleteDrawing(
+    drawingId: int,
+    currentUser: models.User = Depends(getCurrentUser),
+    db: Session = Depends(getDb),
+):
+    drawing = crud.getDrawingById(db, drawingId=drawingId)
+    if drawing is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Drawing not found"
+        )
+    # allow only owner of project to delete
+    if drawing.project.ownerId != currentUser.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed")
+
+    # attempt to delete file on disk if it's in uploads
+    try:
+        file_path = drawing.filePath
+        # only delete files under static/uploads for safety
+        if file_path and file_path.startswith("/static/uploads/"):
+            full = os.path.abspath(
+                os.path.join(os.path.dirname(__file__), "..", file_path.lstrip("/"))
+            )
+            if os.path.exists(full):
+                try:
+                    os.remove(full)
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    # delete DB record
+    crud.deleteDrawing(db, drawingId=drawingId)
+
+    return {"status": "deleted"}
+
+
+@app.delete("/projects/{projectId}")
+def deleteProject(
+    projectId: int,
+    currentUser: models.User = Depends(getCurrentUser),
+    db: Session = Depends(getDb),
+):
+    project = crud.getProjectByIdAndOwner(
+        db=db, projectId=projectId, ownerId=currentUser.id
+    )
+    if project is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Project not found"
+        )
+
+    # delete drawings and collect file paths
+    file_paths = crud.deleteProject(db=db, projectId=projectId)
+
+    # remove files from disk if under static/uploads
+    for fp in file_paths:
+        try:
+            if fp and fp.startswith("/static/uploads/"):
+                full = os.path.abspath(
+                    os.path.join(os.path.dirname(__file__), "..", fp.lstrip("/"))
+                )
+                if os.path.exists(full):
+                    try:
+                        os.remove(full)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+    return {"status": "deleted"}

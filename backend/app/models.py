@@ -16,6 +16,7 @@ class User(Base):
     role = Column(String, default="user")
     projects = relationship("Project", back_populates="owner")
 
+
 class Project(Base):
     __tablename__ = "projects"
 
@@ -24,3 +25,19 @@ class Project(Base):
     createdAt = Column(DateTime, default=datetime.now(UTC))
     ownerId = Column(Integer, ForeignKey("users.id"), nullable=False)
     owner = relationship("User", back_populates="projects")
+    drawings = relationship("Drawing", back_populates="project")
+
+
+class Drawing(Base):
+    __tablename__ = "drawings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    projectId = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    name = Column(String, nullable=False)
+    filePath = Column(String, nullable=False)
+    width = Column(Integer, nullable=True)
+    height = Column(Integer, nullable=True)
+    scale = Column(String, nullable=True)
+    createdAt = Column(DateTime, default=datetime.now(UTC))
+
+    project = relationship("Project", back_populates="drawings")
