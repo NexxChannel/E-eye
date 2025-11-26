@@ -42,16 +42,24 @@
       <div class="drawings-list" v-if="drawings.length">
         <h4>Your Drawings</h4>
         <ul>
-          <li v-for="d in drawings" :key="d.id" @dblclick="openPreview(d)" class="drawing-item">
-            <span class="drawing-name">{{ d.name }}</span>
-            <span class="drawing-date">{{ formatDate(d.createdAt) }}</span>
+          <li v-for="d in drawings" :key="d.id" class="drawing-item">
+            <div class="left">
+              <span class="drawing-name" @dblclick="openPreview(d)">{{ d.name }}</span>
+              <span class="drawing-date">{{ formatDate(d.createdAt) }}</span>
+            </div>
+            <div class="right">
+              <button class="delete-btn" @click="deleteDrawing(d.id)">Delete</button>
+            </div>
           </li>
         </ul>
       </div>
         <div class="upload-area">
-          <label class="upload-label">Upload Drawing (png/jpg)</label>
-          <input type="file" accept="image/png, image/jpeg" @change="onFileChange" />
-          <button :disabled="!selectedFile || uploading" @click="uploadFile">Upload</button>
+          <label class="upload-label">Create Drawing</label>
+          <div class="form-row">
+            <input v-model="newDrawingName" type="text" placeholder="Drawing name" />
+            <input type="file" ref="fileInput" accept="image/png, image/jpeg" @change="onFileChange" />
+            <button :disabled="!selectedFile || uploading || !newDrawingName.trim()" @click="uploadFile">Create</button>
+          </div>
           <div v-if="uploading" class="progress">Uploading... {{ uploadProgress }}%</div>
         </div>
     </div>
@@ -149,6 +157,8 @@ const createProject = async () => {
 const selectedFile = ref(null)
 const uploading = ref(false)
 const uploadProgress = ref(0)
+const newDrawingName = ref('')
+const fileInput = ref(null)
 
 const onFileChange = (e) => {
   const f = e.target.files && e.target.files[0]
@@ -180,7 +190,10 @@ const uploadFile = async () => {
       filePath: d.filePath && d.filePath.startsWith('/') ? `${api.defaults.baseURL.replace(/\/$/, '')}${d.filePath}` : d.filePath
     }))
     drawings.value = mapped
-    selectedFile.value = null
+  selectedFile.value = null
+  newDrawingName.value = ''
+  // clear native file input
+  try { if (fileInput.value) fileInput.value.value = null } catch(_){}
     uploadProgress.value = 100
   } catch (e) {
     console.error('Upload failed', e)
@@ -189,6 +202,18 @@ const uploadFile = async () => {
   } finally {
     uploading.value = false
     setTimeout(() => (uploadProgress.value = 0), 800)
+  }
+}
+
+const deleteDrawing = async (drawingId) => {
+  if (!confirm('Delete this drawing?')) return
+  try {
+    await api.delete(`/drawings/${drawingId}`, getAuthHeaders())
+    drawings.value = drawings.value.filter(d => d.id !== drawingId)
+  } catch (e) {
+    console.error('Delete drawing failed', e)
+    isError.value = true
+    message.value = e.response?.data?.detail || 'Failed to delete drawing'
   }
 }
 
@@ -465,6 +490,10 @@ button:disabled {
   cursor: pointer;
 }
 .drawing-item:hover { background: rgba(0,0,0,0.25); }
+.form-row { display: flex; gap: 0.5rem; align-items: center; }
+.form-row input[type="file"] { padding: 0.25rem; }
+.delete-btn { background: transparent; color: #ff6b6b; border: 1px solid rgba(255,107,107,0.15); padding: 0.25rem 0.5rem; border-radius: 6px; }
+.delete-btn:hover { background: rgba(255,107,107,0.08); }
 .image-modal {
   position: fixed;
   left: 0; top: 0; right: 0; bottom: 0;

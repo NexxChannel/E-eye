@@ -4,7 +4,7 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi import UploadFile, File
+from fastapi import UploadFile, File, Form
 import os
 from sqlalchemy.orm import Session
 
@@ -229,6 +229,7 @@ def createDrawing(
 async def uploadDrawing(
     projectId: int,
     file: UploadFile = File(...),
+    name: str | None = Form(None),
     currentUser: models.User = Depends(getCurrentUser),
     db: Session = Depends(getDb),
 ):
@@ -280,7 +281,7 @@ async def uploadDrawing(
     fileUrl = f"/static/uploads/{dest_name}"
 
     drawing_data = {
-        "name": filename,
+        "name": name or filename,
         "filePath": fileUrl,
         "width": width,
         "height": height,
@@ -304,3 +305,40 @@ def myDrawings(
     # sort by createdAt desc
     all_drawings.sort(key=lambda d: d.createdAt, reverse=True)
     return all_drawings
+
+
+@app.delete("/drawings/{drawingId}")
+def deleteDrawing(
+    drawingId: int,
+    currentUser: models.User = Depends(getCurrentUser),
+    db: Session = Depends(getDb),
+):
+    drawing = crud.getDrawingById(db, drawingId=drawingId)
+    if drawing is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Drawing not found"
+        )
+    # allow only owner of project to delete
+    if drawing.project.ownerId != currentUser.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed")
+
+    # attempt to delete file on disk if it's in uploads
+    try:
+        file_path = drawing.filePath
+        # only delete files under static/uploads for safety
+        if file_path and file_path.startswith("/static/uploads/"):
+            full = os.path.abspath(
+                os.path.join(os.path.dirname(__file__), "..", file_path.lstrip("/"))
+            )
+            if os.path.exists(full):
+                try:
+                    os.remove(full)
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    # delete DB record
+    crud.deleteDrawing(db, drawingId=drawingId)
+
+    return {"status": "deleted"}

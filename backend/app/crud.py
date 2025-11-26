@@ -221,3 +221,14 @@ def listDrawingsByProject(db: Session, projectId: int) -> list[models.Drawing]:
 
 def getDrawingById(db: Session, drawingId: int) -> models.Drawing | None:
     return db.query(models.Drawing).filter(models.Drawing.id == drawingId).first()
+
+
+def deleteDrawing(db: Session, drawingId: int) -> models.Drawing | None:
+    drawing = getDrawingById(db, drawingId=drawingId)
+    if drawing is None:
+        return None
+    # store filePath for caller
+    file_path = drawing.filePath
+    db.delete(drawing)
+    db.commit()
+    return file_path
