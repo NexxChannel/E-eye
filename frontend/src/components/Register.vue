@@ -76,6 +76,7 @@ h2 {
   font-size: 1.5rem;
   font-weight: 600;
   background: linear-gradient(to right, #fff, #aaa);
+  background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }

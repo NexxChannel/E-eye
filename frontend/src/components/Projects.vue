@@ -48,6 +48,12 @@
           </li>
         </ul>
       </div>
+        <div class="upload-area">
+          <label class="upload-label">Upload Drawing (png/jpg)</label>
+          <input type="file" accept="image/png, image/jpeg" @change="onFileChange" />
+          <button :disabled="!selectedFile || uploading" @click="uploadFile">Upload</button>
+          <div v-if="uploading" class="progress">Uploading... {{ uploadProgress }}%</div>
+        </div>
     </div>
 
     <div v-if="previewDrawing" class="image-modal">
@@ -139,6 +145,47 @@ const createProject = async () => {
   }
 }
 
+// upload helpers
+const selectedFile = ref(null)
+const uploading = ref(false)
+const uploadProgress = ref(0)
+
+const onFileChange = (e) => {
+  const f = e.target.files && e.target.files[0]
+  if (f) selectedFile.value = f
+}
+
+const uploadFile = async () => {
+  if (!selectedFile.value || !selectedProject.value) return
+  uploading.value = true
+  uploadProgress.value = 0
+  try {
+    const form = new FormData()
+    form.append('file', selectedFile.value)
+    const resp = await api.post(`/projects/${selectedProject.value.id}/drawings/upload`, form, {
+      headers: {
+        'Authorization': `Bearer ${props.token}`,
+        'Content-Type': 'multipart/form-data'
+      },
+      onUploadProgress: (ev) => {
+        if (ev.total) uploadProgress.value = Math.round((ev.loaded / ev.total) * 100)
+      }
+    })
+    // refresh drawings
+    const dresp = await api.get(`/projects/${selectedProject.value.id}/drawings`, getAuthHeaders())
+    drawings.value = dresp.data || []
+    selectedFile.value = null
+    uploadProgress.value = 100
+  } catch (e) {
+    console.error('Upload failed', e)
+    isError.value = true
+    message.value = e.response?.data?.detail || 'Upload failed'
+  } finally {
+    uploading.value = false
+    setTimeout(() => (uploadProgress.value = 0), 800)
+  }
+}
+
 const viewProject = async (projectId) => {
   if (!props.token) return
   try {
@@ -216,6 +263,7 @@ h2 {
   font-size: 1.5rem;
   font-weight: 600;
   background: linear-gradient(to right, #fff, #aaa);
+  background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }

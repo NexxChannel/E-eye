@@ -4,6 +4,7 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi import UploadFile, File
 import os
 from sqlalchemy.orm import Session
 
@@ -221,6 +222,72 @@ def createDrawing(
     drawing = crud.createDrawing(
         db=db, projectId=projectId, drawingIn=drawingIn.model_dump()
     )
+    return drawing
+
+
+@app.post("/projects/{projectId}/drawings/upload", response_model=schemas.DrawingOut)
+async def uploadDrawing(
+    projectId: int,
+    file: UploadFile = File(...),
+    currentUser: models.User = Depends(getCurrentUser),
+    db: Session = Depends(getDb),
+):
+    # validate project exists and belongs to user
+    project = crud.getProjectByIdAndOwner(
+        db=db, projectId=projectId, ownerId=currentUser.id
+    )
+    if project is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Project not found"
+        )
+
+    # validate file type
+    filename = file.filename
+    content_type = file.content_type
+    allowed = ("image/png", "image/jpeg", "image/jpg")
+    if content_type not in allowed:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported file type"
+        )
+
+    # save file to static/uploads with unique name
+    import uuid
+    from pathlib import Path
+    from PIL import Image
+
+    uploads_dir = Path(
+        os.path.join(os.path.dirname(__file__), "..", "static", "uploads")
+    ).resolve()
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+
+    ext = Path(filename).suffix or (".png" if content_type == "image/png" else ".jpg")
+    dest_name = f"{uuid.uuid4().hex}{ext}"
+    dest_path = uploads_dir / dest_name
+
+    # write file to disk
+    with open(dest_path, "wb") as f:
+        content = await file.read()
+        f.write(content)
+
+    # read image size
+    try:
+        img = Image.open(dest_path)
+        width, height = img.size
+    except Exception:
+        width = None
+        height = None
+
+    fileUrl = f"/static/uploads/{dest_name}"
+
+    drawing_data = {
+        "name": filename,
+        "filePath": fileUrl,
+        "width": width,
+        "height": height,
+        "scale": None,
+    }
+
+    drawing = crud.createDrawing(db=db, projectId=projectId, drawingIn=drawing_data)
     return drawing
 
 

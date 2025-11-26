@@ -70,6 +70,7 @@ header h1 {
   font-size: 3.2rem;
   line-height: 1.1;
   background: linear-gradient(to right, #646cff, #42b883);
+  background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   margin-bottom: 0.5rem;
