@@ -42,7 +42,7 @@
       <div class="drawings-list" v-if="drawings.length">
         <h4>Your Drawings</h4>
         <ul>
-          <li v-for="d in drawings" :key="d.id" @dblclick="previewDrawing = d" class="drawing-item">
+          <li v-for="d in drawings" :key="d.id" @dblclick="openPreview(d)" class="drawing-item">
             <span class="drawing-name">{{ d.name }}</span>
             <span class="drawing-date">{{ formatDate(d.createdAt) }}</span>
           </li>
@@ -173,7 +173,13 @@ const uploadFile = async () => {
     })
     // refresh drawings
     const dresp = await api.get(`/projects/${selectedProject.value.id}/drawings`, getAuthHeaders())
-    drawings.value = dresp.data || []
+    // convert backend-relative filePath to absolute URL using api baseURL
+    const raw = dresp.data || []
+    const mapped = raw.map(d => ({
+      ...d,
+      filePath: d.filePath && d.filePath.startsWith('/') ? `${api.defaults.baseURL.replace(/\/$/, '')}${d.filePath}` : d.filePath
+    }))
+    drawings.value = mapped
     selectedFile.value = null
     uploadProgress.value = 100
   } catch (e) {
@@ -201,7 +207,12 @@ const viewProject = async (projectId) => {
     // fetch drawings for this project
     try {
       const dresp = await api.get(`/projects/${projectId}/drawings`, getAuthHeaders())
-      drawings.value = dresp.data || []
+      const raw = dresp.data || []
+      const mapped = raw.map(d => ({
+        ...d,
+        filePath: d.filePath && d.filePath.startsWith('/') ? `${api.defaults.baseURL.replace(/\/$/, '')}${d.filePath}` : d.filePath
+      }))
+      drawings.value = mapped
       // ensure sorted by createdAt desc
       drawings.value.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
     } catch (e) {
@@ -222,6 +233,13 @@ const formatFullDate = (dateString) => {
   } catch (_e) {
     return dateString
   }
+}
+
+const openPreview = (d) => {
+  if (!d) return
+  // ensure filePath is absolute
+  const filePath = d.filePath && d.filePath.startsWith('/') ? `${api.defaults.baseURL.replace(/\/$/, '')}${d.filePath}` : d.filePath
+  previewDrawing.value = { ...d, filePath }
 }
 
 watch(() => props.token, (newToken) => {
