@@ -19,9 +19,14 @@
     <div class="projects-list" v-if="projects.length > 0">
       <h3>Your Projects</h3>
       <ul>
-        <li v-for="project in projects" :key="project.id" @click="viewProject(project.id)" class="project-item">
-          <span class="project-name">{{ project.name }}</span>
-          <span class="project-date">{{ formatDate(project.createdAt) }}</span>
+        <li v-for="project in projects" :key="project.id" class="project-item">
+          <div class="left" @click="viewProject(project.id)">
+            <span class="project-name">{{ project.name }}</span>
+            <span class="project-date">{{ formatDate(project.createdAt) }}</span>
+          </div>
+          <div class="right">
+            <button class="delete-btn" @click.stop.prevent="deleteProject(project.id)">Delete</button>
+          </div>
         </li>
       </ul>
     </div>
@@ -170,8 +175,9 @@ const uploadFile = async () => {
   uploading.value = true
   uploadProgress.value = 0
   try {
-    const form = new FormData()
-    form.append('file', selectedFile.value)
+  const form = new FormData()
+  form.append('file', selectedFile.value)
+  form.append('name', newDrawingName.value || '')
     const resp = await api.post(`/projects/${selectedProject.value.id}/drawings/upload`, form, {
       headers: {
         'Authorization': `Bearer ${props.token}`,
@@ -214,6 +220,24 @@ const deleteDrawing = async (drawingId) => {
     console.error('Delete drawing failed', e)
     isError.value = true
     message.value = e.response?.data?.detail || 'Failed to delete drawing'
+  }
+}
+
+const deleteProject = async (projectId) => {
+  if (!confirm('Delete this project and all its drawings?')) return
+  try {
+    await api.delete(`/projects/${projectId}`, getAuthHeaders())
+    // remove from local list
+    projects.value = projects.value.filter(p => p.id !== projectId)
+    // if the deleted project is currently selected, close the detail view
+    if (selectedProject.value && selectedProject.value.id === projectId) {
+      selectedProject.value = null
+      drawings.value = []
+    }
+  } catch (e) {
+    console.error('Delete project failed', e)
+    isError.value = true
+    message.value = e.response?.data?.detail || 'Failed to delete project'
   }
 }
 
@@ -291,7 +315,7 @@ onMounted(() => {
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   width: 100%;
-  max-width: 400px;
+  max-width: 720px;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
@@ -329,6 +353,12 @@ h3 {
   gap: 0.5rem;
   text-align: left;
 }
+
+.project-item .left { cursor: pointer; display:flex; gap:0.5rem; align-items:center }
+.project-item .right { display:flex; align-items:center }
+.form-row { display: flex; gap: 0.5rem; align-items: center; }
+.form-row input[type="text"] { flex: 1 1 auto; }
+.form-row input[type="file"] { flex: 0 0 auto; }
 
 label {
   font-size: 0.875rem;

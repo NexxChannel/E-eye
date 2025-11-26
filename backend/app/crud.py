@@ -232,3 +232,23 @@ def deleteDrawing(db: Session, drawingId: int) -> models.Drawing | None:
     db.delete(drawing)
     db.commit()
     return file_path
+
+
+def deleteProject(db: Session, projectId: int) -> list[str]:
+    # delete all drawings for the project and return file paths to delete
+    drawings = listDrawingsByProject(db, projectId=projectId)
+    file_paths = [d.filePath for d in drawings if d.filePath]
+    for d in drawings:
+        try:
+            db.delete(d)
+        except Exception:
+            pass
+    # delete project itself
+    project = db.query(models.Project).filter(models.Project.id == projectId).first()
+    if project:
+        try:
+            db.delete(project)
+        except Exception:
+            pass
+    db.commit()
+    return file_paths

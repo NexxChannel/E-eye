@@ -342,3 +342,38 @@ def deleteDrawing(
     crud.deleteDrawing(db, drawingId=drawingId)
 
     return {"status": "deleted"}
+
+
+@app.delete("/projects/{projectId}")
+def deleteProject(
+    projectId: int,
+    currentUser: models.User = Depends(getCurrentUser),
+    db: Session = Depends(getDb),
+):
+    project = crud.getProjectByIdAndOwner(
+        db=db, projectId=projectId, ownerId=currentUser.id
+    )
+    if project is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Project not found"
+        )
+
+    # delete drawings and collect file paths
+    file_paths = crud.deleteProject(db=db, projectId=projectId)
+
+    # remove files from disk if under static/uploads
+    for fp in file_paths:
+        try:
+            if fp and fp.startswith("/static/uploads/"):
+                full = os.path.abspath(
+                    os.path.join(os.path.dirname(__file__), "..", fp.lstrip("/"))
+                )
+                if os.path.exists(full):
+                    try:
+                        os.remove(full)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+    return {"status": "deleted"}
