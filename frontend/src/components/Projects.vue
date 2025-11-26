@@ -524,11 +524,35 @@ button:disabled {
 .drawing-item {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   padding: 0.5rem;
   background: rgba(0,0,0,0.15);
   border-radius: 8px;
   margin-bottom: 0.5rem;
+  gap: 0.5rem;
+}
+.drawing-item .left {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+.drawing-item .drawing-name {
+  font-weight: 500;
+  color: #fff;
   cursor: pointer;
+  word-break: break-word;
+}
+.drawing-item .drawing-date {
+  font-size: 0.75rem;
+  color: #888;
+}
+.drawing-item .right {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
 }
 .drawing-item:hover { background: rgba(0,0,0,0.25); }
 .form-row { display: flex; gap: 0.5rem; align-items: center; }
