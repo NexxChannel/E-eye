@@ -10,7 +10,7 @@
         <Register />
         <Login @login-success="handleLoginSuccess" />
         <Verify :initial-token="accessToken" />
-        <Projects :token="accessToken" />
+        <Projects :token="accessToken" @open-image="openImage" />
       </div>
     </main>
   </div>
@@ -27,6 +27,12 @@ const accessToken = ref('')
 
 const handleLoginSuccess = (token) => {
   accessToken.value = token
+}
+
+const openImage = (image) => {
+  // Store image data in sessionStorage and open new tab
+  sessionStorage.setItem('imageViewerData', JSON.stringify(image))
+  window.open('/image-viewer', '_blank')
 }
 </script>
 

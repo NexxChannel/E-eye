@@ -53,6 +53,7 @@
               <span class="drawing-date">{{ formatDate(d.createdAt) }}</span>
             </div>
             <div class="right">
+              <button class="open-btn" @click.stop="openDrawingFullscreen(d)">Open</button>
               <button class="preview-btn" @click.stop="openPreview(d)">Preview</button>
               <button class="delete-btn" @click.stop="deleteDrawing(d.id)">Delete</button>
             </div>
@@ -87,6 +88,8 @@ import api from '../services/api'
 const props = defineProps({
   token: String
 })
+
+const emit = defineEmits(['open-image'])
 
 const newProjectName = ref('')
 const projects = ref([])
@@ -300,6 +303,23 @@ const openPreview = (d) => {
   console.log('📸 resolved filePath:', filePath)
   previewDrawing.value = { ...d, filePath }
   console.log('📸 previewDrawing set:', previewDrawing.value)
+}
+
+const openDrawingFullscreen = (d) => {
+  console.log('🖼️ openDrawingFullscreen called with drawing:', d)
+  if (!d || !d.filePath) {
+    console.warn('Drawing missing or no filePath:', d)
+    return
+  }
+  // resolve file path to absolute URL
+  let filePath = d.filePath
+  if (filePath.startsWith('/')) {
+    const base = api.defaults?.baseURL || 'http://localhost:8000'
+    filePath = `${base.replace(/\/$/, '')}${filePath}`
+  }
+  console.log('🖼️ resolved filePath:', filePath)
+  // emit to parent to open fullscreen viewer
+  emit('open-image', { ...d, filePath })
 }
 
 watch(() => props.token, (newToken) => {
@@ -557,7 +577,9 @@ button:disabled {
 .drawing-item:hover { background: rgba(0,0,0,0.25); }
 .form-row { display: flex; gap: 0.5rem; align-items: center; }
 .form-row input[type="file"] { padding: 0.25rem; }
-.preview-btn { background: transparent; color: #64b5f6; border: 1px solid rgba(100,181,246,0.15); padding: 0.25rem 0.5rem; border-radius: 6px; margin-right: 0.25rem; }
+.open-btn { background: transparent; color: #4caf50; border: 1px solid rgba(76,175,80,0.15); padding: 0.25rem 0.5rem; border-radius: 6px; }
+.open-btn:hover { background: rgba(76,175,80,0.08); }
+.preview-btn { background: transparent; color: #64b5f6; border: 1px solid rgba(100,181,246,0.15); padding: 0.25rem 0.5rem; border-radius: 6px; }
 .preview-btn:hover { background: rgba(100,181,246,0.08); }
 .delete-btn { background: transparent; color: #ff6b6b; border: 1px solid rgba(255,107,107,0.15); padding: 0.25rem 0.5rem; border-radius: 6px; }
 .delete-btn:hover { background: rgba(255,107,107,0.08); }
