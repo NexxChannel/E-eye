@@ -56,6 +56,12 @@ class DrawingCreate(DrawingBase):
     scale: str | None = None
 
 
+class ScaleCalibration(BaseModel):
+    pixelsPerMeter: float
+    actualDistance: float
+    pixelDistance: float
+
+
 class DrawingOut(DrawingBase):
     id: int
     projectId: int
@@ -63,6 +69,7 @@ class DrawingOut(DrawingBase):
     width: int | None = None
     height: int | None = None
     scale: str | None = None
+    pixelsPerMeter: str | None = None
     createdAt: datetime
 
     model_config = ConfigDict(from_attributes=True)

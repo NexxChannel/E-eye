@@ -38,6 +38,10 @@ class Drawing(Base):
     width = Column(Integer, nullable=True)
     height = Column(Integer, nullable=True)
     scale = Column(String, nullable=True)
+    # 比例尺校准数据
+    pixelsPerMeter = Column(
+        String, nullable=True
+    )  # JSON string: {pixelsPerMeter: float, actualDistance: float, pixelDistance: float}
     createdAt = Column(DateTime, default=datetime.now(UTC))
 
     project = relationship("Project", back_populates="drawings")

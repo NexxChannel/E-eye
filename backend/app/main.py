@@ -344,6 +344,34 @@ def deleteDrawing(
     return {"status": "deleted"}
 
 
+@app.post("/drawings/{drawingId}/calibrate-scale", response_model=schemas.DrawingOut)
+def calibrateDrawingScale(
+    drawingId: int,
+    scaleData: schemas.ScaleCalibration,
+    currentUser: models.User = Depends(getCurrentUser),
+    db: Session = Depends(getDb),
+):
+    drawing = crud.getDrawingById(db, drawingId=drawingId)
+    if drawing is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Drawing not found"
+        )
+    # allow only owner of project to calibrate
+    if drawing.project.ownerId != currentUser.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed")
+
+    # update scale data
+    updated_drawing = crud.updateDrawingScale(
+        db, drawingId=drawingId, scaleData=scaleData
+    )
+    if updated_drawing is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Drawing not found"
+        )
+
+    return updated_drawing
+
+
 @app.delete("/projects/{projectId}")
 def deleteProject(
     projectId: int,

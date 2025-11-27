@@ -252,3 +252,16 @@ def deleteProject(db: Session, projectId: int) -> list[str]:
             pass
     db.commit()
     return file_paths
+
+
+def updateDrawingScale(
+    db: Session, drawingId: int, scaleData: schemas.ScaleCalibration
+) -> models.Drawing | None:
+    drawing = getDrawingById(db, drawingId=drawingId)
+    if drawing is None:
+        return None
+    # Store scale data as JSON string
+    drawing.pixelsPerMeter = json.dumps(scaleData.model_dump())
+    db.commit()
+    db.refresh(drawing)
+    return drawing
