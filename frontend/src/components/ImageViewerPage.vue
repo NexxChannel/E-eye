@@ -6,6 +6,7 @@
       class="fullscreen-image"
       :style="{ cursor: calibratingScale ? 'crosshair' : 'default' }"
       @click="onImageClick"
+      @load="onImageLoad"
     />
     
     <!-- 右侧工具栏 -->
@@ -57,17 +58,17 @@
       <circle 
         v-for="(point, idx) in calibrationPoints" 
         :key="idx"
-        :cx="point.x" 
-        :cy="point.y" 
+        :cx="point.screenX" 
+        :cy="point.screenY" 
         r="5" 
         class="calibration-point"
       />
       <line 
         v-if="calibrationPoints.length === 2"
-        :x1="calibrationPoints[0].x"
-        :y1="calibrationPoints[0].y"
-        :x2="calibrationPoints[1].x"
-        :y2="calibrationPoints[1].y"
+        :x1="calibrationPoints[0].screenX"
+        :y1="calibrationPoints[0].screenY"
+        :x2="calibrationPoints[1].screenX"
+        :y2="calibrationPoints[1].screenY"
         class="calibration-line"
       />
     </svg>
@@ -89,6 +90,7 @@ const actualDistance = ref('')
 const imageElement = ref(null)
 const scaleInfo = ref(null)
 const isSaving = ref(false)
+const imgRect = ref(null)  // 存储图片的屏幕位置
 
 const formatDate = (dateString) => {
   try {
@@ -125,6 +127,25 @@ onMounted(async () => {
       console.error('Failed to parse image data:', e)
     }
   }
+
+  // 添加 window resize 监听器，更新比例尺显示
+  const handleResize = () => {
+    const scale = sessionStorage.getItem('imageScale')
+    if (scale && scaleInfo.value) {
+      try {
+        generateScaleDisplay(JSON.parse(scale))
+      } catch (e) {
+        console.error('Failed to update scale on resize:', e)
+      }
+    }
+  }
+
+  window.addEventListener('resize', handleResize)
+
+  // 清理监听器
+  return () => {
+    window.removeEventListener('resize', handleResize)
+  }
 })
 
 const toggleCalibration = () => {
@@ -139,18 +160,68 @@ const toggleCalibration = () => {
   }
 }
 
+const onImageLoad = (event) => {
+  // 图片加载完成时更新 imgRect 信息
+  const img = event.target
+  const rect = img.getBoundingClientRect()
+  imgRect.value = {
+    left: rect.left,
+    top: rect.top,
+    width: rect.width,
+    height: rect.height,
+    naturalWidth: img.naturalWidth,
+    naturalHeight: img.naturalHeight
+  }
+
+  // 如果已有比例尺数据，重新生成显示
+  const scale = sessionStorage.getItem('imageScale')
+  if (scale && scaleInfo.value) {
+    try {
+      generateScaleDisplay(JSON.parse(scale))
+    } catch (e) {
+      console.error('Failed to update scale on image load:', e)
+    }
+  }
+}
+
 const onImageClick = (event) => {
   if (!calibratingScale.value) return
 
-  const img = event.target
+  const img = event.currentTarget
   const rect = img.getBoundingClientRect()
   
-  // 获取相对于图片左上角的点击坐标
-  const x = event.clientX - rect.left
-  const y = event.clientY - rect.top
+  // 保存图片的屏幕矩形信息，用于 SVG 坐标转换
+  imgRect.value = {
+    left: rect.left,
+    top: rect.top,
+    width: rect.width,
+    height: rect.height,
+    naturalWidth: img.naturalWidth,
+    naturalHeight: img.naturalHeight
+  }
+  
+  // 鼠标在屏幕上的绝对位置
+  const mouseX = event.clientX
+  const mouseY = event.clientY
+  
+  // 相对于图片左上角的屏幕坐标
+  const relativeX = mouseX - rect.left
+  const relativeY = mouseY - rect.top
+  
+  // 将屏幕坐标转换为原始图片坐标
+  const scaleX = img.naturalWidth / rect.width
+  const scaleY = img.naturalHeight / rect.height
+  
+  const imageX = relativeX * scaleX
+  const imageY = relativeY * scaleY
   
   if (calibrationPoints.value.length < 2) {
-    calibrationPoints.value.push({ x, y })
+    calibrationPoints.value.push({ 
+      imageX: imageX,  // 原始图片坐标（用于计算距离）
+      imageY: imageY,
+      screenX: mouseX,  // 屏幕绝对坐标（用于 SVG 显示）
+      screenY: mouseY
+    })
   }
 }
 
@@ -160,11 +231,11 @@ const confirmCalibration = async () => {
     return
   }
 
-  // 计算像素距离
+  // 计算像素距离（使用原始图片坐标）
   const p1 = calibrationPoints.value[0]
   const p2 = calibrationPoints.value[1]
   const pixelDistance = Math.sqrt(
-    Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2)
+    Math.pow(p2.imageX - p1.imageX, 2) + Math.pow(p2.imageY - p1.imageY, 2)
   )
 
   // 计算像素/米的比例
@@ -178,7 +249,11 @@ const confirmCalibration = async () => {
   if (image.value && image.value.id) {
     isSaving.value = true
     try {
-      await api.post(`/drawings/${image.value.id}/calibrate-scale`, scale)
+      const headers = {}
+      if (image.value.token) {
+        headers['Authorization'] = `Bearer ${image.value.token}`
+      }
+      await api.post(`/drawings/${image.value.id}/calibrate-scale`, scale, { headers })
       console.log('Scale calibration saved to database')
     } catch (error) {
       console.error('Failed to save scale calibration:', error)
@@ -204,12 +279,33 @@ const cancelCalibration = () => {
 }
 
 const generateScaleDisplay = (scale) => {
-  // 生成 100px 对应的实际距离
-  const barWidthPx = 100
-  const actualLen = (barWidthPx / scale.pixelsPerMeter).toFixed(2)
+  // 根据当前图片显示尺寸动态计算比例尺条形宽度
+  if (!imgRect.value) {
+    // 如果没有图片信息，使用默认值
+    const barWidthPx = 100
+    const actualLen = (barWidthPx / scale.pixelsPerMeter).toFixed(2)
+    scaleInfo.value = {
+      barWidth: barWidthPx,
+      text: `${actualLen} m`
+    }
+    return
+  }
+
+  // 使用屏幕上显示的 100 像素对应的实际距离
+  // 注意：barWidthPx 是屏幕像素，需要转换为原始图片像素来计算实际距离
+  const barWidthScreenPx = 100  // 屏幕上显示 100px 的条形
+  
+  // 屏幕像素转原始图片像素的缩放因子
+  const scaleX = imgRect.value.naturalWidth / imgRect.value.width
+  
+  // 100 个屏幕像素在原始图片上对应的像素数
+  const barWidthImagePx = barWidthScreenPx * scaleX
+  
+  // 计算这些像素对应的实际距离
+  const actualLen = (barWidthImagePx / scale.pixelsPerMeter).toFixed(2)
   
   scaleInfo.value = {
-    barWidth: barWidthPx,
+    barWidth: Math.min(barWidthScreenPx, window.innerWidth - 40),  // 不超过屏幕宽度
     text: `${actualLen} m`
   }
 }

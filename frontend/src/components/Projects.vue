@@ -318,8 +318,8 @@ const openDrawingFullscreen = (d) => {
     filePath = `${base.replace(/\/$/, '')}${filePath}`
   }
   console.log('🖼️ resolved filePath:', filePath)
-  // emit to parent to open fullscreen viewer
-  emit('open-image', { ...d, filePath })
+  // emit to parent to open fullscreen viewer, include auth token
+  emit('open-image', { ...d, filePath, token: props.token })
 }
 
 watch(() => props.token, (newToken) => {
