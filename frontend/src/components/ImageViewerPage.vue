@@ -1,13 +1,23 @@
 <template>
-  <div v-if="image" class="fullscreen-viewer">
-    <img 
-      :src="image.filePath" 
-      :alt="image.name" 
-      class="fullscreen-image"
-      :style="{ cursor: calibratingScale ? 'crosshair' : 'default' }"
-      @click="onImageClick"
-      @load="onImageLoad"
-    />
+  <div v-if="image" class="fullscreen-viewer" @wheel.prevent="onWheel">
+    <!-- 图片容器，支持缩放和平移 -->
+    <div 
+      class="image-container"
+      :style="{
+        transform: `translate(${panX}px, ${panY}px) scale(${zoom})`,
+        transformOrigin: 'center center'
+      }"
+    >
+      <img 
+        :src="image.filePath" 
+        :alt="image.name" 
+        class="fullscreen-image"
+        :style="{ cursor: calibratingScale ? 'crosshair' : 'grab' }"
+        @click="onImageClick"
+        @load="onImageLoad"
+        @mousedown="startPan"
+      />
+    </div>
     
     <!-- 右侧工具栏 -->
     <div class="toolbar">
@@ -20,6 +30,7 @@
       >
         📏
       </button>
+      <button class="reset-btn" @click="resetZoom" title="重置缩放">⟲</button>
     </div>
 
     <!-- 图片信息 -->
@@ -45,13 +56,16 @@
       </div>
     </div>
 
-    <!-- 左下角比例尺显示 -->
+    <!-- 左下角比例尺显示（固定位置，不受缩放平移影响） -->
     <div v-if="scaleInfo" class="scale-display">
       <div class="scale-bar">
         <div class="bar" :style="{ width: scaleInfo.barWidth + 'px' }"></div>
       </div>
       <p>{{ scaleInfo.text }}</p>
     </div>
+
+    <!-- 缩放级别显示 -->
+    <div class="zoom-level">{{ (zoom * 100).toFixed(0) }}%</div>
 
     <!-- 校准点标记 -->
     <svg v-if="calibrationPoints.length > 0" class="calibration-overlay">
@@ -79,7 +93,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, onUnmounted } from 'vue'
 import api from '../services/api'
 
 const image = ref(null)
@@ -92,12 +106,96 @@ const scaleInfo = ref(null)
 const isSaving = ref(false)
 const imgRect = ref(null)  // 存储图片的屏幕位置
 
+// 缩放和平移
+const zoom = ref(1)
+const panX = ref(0)
+const panY = ref(0)
+const minZoom = 0.5
+const maxZoom = 5
+const zoomSpeed = 0.1
+
+// 平移状态
+const isPanning = ref(false)
+const panStartX = ref(0)
+const panStartY = ref(0)
+const panStartPanX = ref(0)
+const panStartPanY = ref(0)
+
 const formatDate = (dateString) => {
   try {
     return new Date(dateString).toLocaleString()
   } catch (_e) {
     return dateString
   }
+}
+
+// 滚轮缩放（支持鼠标滚轮和触控板）
+const onWheel = (event) => {
+  if (calibratingScale.value) return
+  
+  event.preventDefault()
+  
+  // 获取鼠标相对于视口的位置
+  const rect = event.currentTarget.getBoundingClientRect()
+  const mouseX = event.clientX - rect.left
+  const mouseY = event.clientY - rect.top
+  
+  // 计算缩放中心（相对于容器中心）
+  const centerX = rect.width / 2
+  const centerY = rect.height / 2
+  
+  const oldZoom = zoom.value
+  
+  // 根据滚轮方向调整缩放
+  // deltaY 为负时是向上滚动（放大），为正时是向下滚动（缩小）
+  const direction = event.deltaY > 0 ? -1 : 1
+  zoom.value = Math.max(minZoom, Math.min(maxZoom, zoom.value + direction * zoomSpeed))
+  
+  // 调整平移，使缩放中心保持在鼠标位置
+  const zoomDelta = zoom.value - oldZoom
+  panX.value -= (mouseX - centerX) * (zoomDelta / oldZoom)
+  panY.value -= (mouseY - centerY) * (zoomDelta / oldZoom)
+}
+
+// 开始平移
+const startPan = (event) => {
+  if (calibratingScale.value || zoom.value === 1) return
+  if (event.button !== 0) return  // 只响应左键
+  
+  isPanning.value = true
+  panStartX.value = event.clientX
+  panStartY.value = event.clientY
+  panStartPanX.value = panX.value
+  panStartPanY.value = panY.value
+  
+  // 改变光标样式
+  event.currentTarget.style.cursor = 'grabbing'
+}
+
+// 鼠标移动（平移）
+const onMouseMove = (event) => {
+  if (!isPanning.value) return
+  
+  const deltaX = event.clientX - panStartX.value
+  const deltaY = event.clientY - panStartY.value
+  
+  panX.value = panStartPanX.value + deltaX
+  panY.value = panStartPanY.value + deltaY
+}
+
+// 停止平移
+const onMouseUp = (event) => {
+  if (event.target && event.target.classList) {
+    event.target.style.cursor = calibratingScale.value ? 'crosshair' : 'grab'
+  }
+  isPanning.value = false
+}
+
+// 重置缩放和平移
+const resetZoom = () => {
+  zoom.value = 1
+  panX.value = 0
+  panY.value = 0
 }
 
 onMounted(async () => {
@@ -141,10 +239,14 @@ onMounted(async () => {
   }
 
   window.addEventListener('resize', handleResize)
+  document.addEventListener('mousemove', onMouseMove)
+  document.addEventListener('mouseup', onMouseUp)
 
   // 清理监听器
   return () => {
     window.removeEventListener('resize', handleResize)
+    document.removeEventListener('mousemove', onMouseMove)
+    document.removeEventListener('mouseup', onMouseUp)
   }
 })
 
@@ -323,9 +425,18 @@ const generateScaleDisplay = (scale) => {
   align-items: center;
   justify-content: center;
   z-index: 10000;
-  overflow: auto;
+  overflow: hidden;
   width: 100%;
   height: 100%;
+}
+
+.image-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.05s ease-out;
 }
 
 .fullscreen-image {
@@ -333,6 +444,7 @@ const generateScaleDisplay = (scale) => {
   max-height: 100%;
   object-fit: contain;
   display: block;
+  user-select: none;
 }
 
 .toolbar {
@@ -346,7 +458,8 @@ const generateScaleDisplay = (scale) => {
 }
 
 .info-btn,
-.calibrate-btn {
+.calibrate-btn,
+.reset-btn {
   width: 2.5rem;
   height: 2.5rem;
   border-radius: 50%;
@@ -362,7 +475,8 @@ const generateScaleDisplay = (scale) => {
 }
 
 .info-btn:hover,
-.calibrate-btn:hover {
+.calibrate-btn:hover,
+.reset-btn:hover {
   background: rgba(100, 181, 246, 0.3);
   transform: scale(1.1);
 }
@@ -467,6 +581,20 @@ const generateScaleDisplay = (scale) => {
 
 .distance-input button.cancel-btn:hover {
   background: #da190b;
+}
+
+.zoom-level {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  background: rgba(0, 0, 0, 0.7);
+  color: #64b5f6;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  border: 1px solid rgba(100, 181, 246, 0.3);
+  z-index: 10002;
+  font-size: 0.875rem;
+  font-weight: 600;
 }
 
 .scale-display {
