@@ -401,37 +401,35 @@ const cancelCalibration = () => {
 }
 
 const generateScaleDisplay = (scale) => {
-  // 根据当前图片显示尺寸和缩放倍数动态计算比例尺条形宽度
+  // 比例尺条形屏幕显示宽度始终固定为 100px
+  // 只改变显示的文字（代表多少米）
+  
   if (!imgRect.value) {
     // 如果没有图片信息，使用默认值
-    const barWidthPx = 100
-    const actualLen = (barWidthPx / scale.pixelsPerMeter).toFixed(2)
+    const barWidthScreenPx = 100
+    const actualLen = (barWidthScreenPx / scale.pixelsPerMeter).toFixed(2)
     scaleInfo.value = {
-      barWidth: barWidthPx,
+      barWidth: barWidthScreenPx,
       text: `${actualLen} m`
     }
     return
   }
 
-  // 使用屏幕上显示的 100 像素对应的实际距离
-  // 注意：barWidthPx 是屏幕像素，需要转换为原始图片像素来计算实际距离
-  let barWidthScreenPx = 100  // 屏幕上显示 100px 的条形
+  // 屏幕上显示的条形宽度始终是 100px
+  const barWidthScreenPx = 100
   
   // 屏幕像素转原始图片像素的缩放因子
   const scaleX = imgRect.value.naturalWidth / imgRect.value.width
   
-  // 考虑当前的缩放倍数：图片放大时，同样的屏幕像素在原始图片上占更小的空间
-  // 例如：图片放大2倍，100个屏幕像素实际只对应50个原始图片像素
+  // 100 个屏幕像素在原始图片上对应的像素数
+  // 需要考虑当前缩放倍数：图片放大时，同样的屏幕像素在原图占更小的空间
   const barWidthImagePx = (barWidthScreenPx / zoom.value) * scaleX
   
   // 计算这些像素对应的实际距离
   const actualLen = (barWidthImagePx / scale.pixelsPerMeter).toFixed(2)
   
-  // 显示的条形宽度也要随放大倍数调整
-  const displayBarWidth = Math.min(barWidthScreenPx * zoom.value, window.innerWidth - 40)
-  
   scaleInfo.value = {
-    barWidth: displayBarWidth,
+    barWidth: barWidthScreenPx,  // 始终 100px
     text: `${actualLen} m`
   }
 }
@@ -625,17 +623,18 @@ const generateScaleDisplay = (scale) => {
   position: fixed;
   bottom: 1rem;
   left: 1rem;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.3);
   padding: 1rem;
   border-radius: 8px;
-  border: 1px solid rgba(76, 175, 80, 0.3);
+  border: 1px solid rgba(76, 175, 80, 0.4);
   z-index: 10002;
   min-width: 150px;
+  backdrop-filter: blur(4px);
 }
 
 .scale-bar {
   height: 3px;
-  background: #4caf50;
+  background: rgba(76, 175, 80, 0.8);
   border-radius: 2px;
   margin-bottom: 0.5rem;
   width: 100px;
@@ -643,13 +642,13 @@ const generateScaleDisplay = (scale) => {
 
 .scale-bar .bar {
   height: 100%;
-  background: #4caf50;
+  background: rgba(76, 175, 80, 0.8);
   border-radius: 2px;
 }
 
 .scale-display p {
   margin: 0;
-  color: #fff;
+  color: rgba(255, 255, 255, 0.8);
   font-size: 0.875rem;
   text-align: center;
 }
