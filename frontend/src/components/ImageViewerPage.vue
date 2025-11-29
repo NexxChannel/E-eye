@@ -155,6 +155,16 @@ const onWheel = (event) => {
   const zoomDelta = zoom.value - oldZoom
   panX.value -= (mouseX - centerX) * (zoomDelta / oldZoom)
   panY.value -= (mouseY - centerY) * (zoomDelta / oldZoom)
+  
+  // 缩放后更新比例尺显示
+  const scale = sessionStorage.getItem('imageScale')
+  if (scale && scaleInfo.value) {
+    try {
+      generateScaleDisplay(JSON.parse(scale))
+    } catch (e) {
+      console.error('Failed to update scale on zoom:', e)
+    }
+  }
 }
 
 // 开始平移
@@ -196,6 +206,16 @@ const resetZoom = () => {
   zoom.value = 1
   panX.value = 0
   panY.value = 0
+  
+  // 重置后更新比例尺显示
+  const scale = sessionStorage.getItem('imageScale')
+  if (scale && scaleInfo.value) {
+    try {
+      generateScaleDisplay(JSON.parse(scale))
+    } catch (e) {
+      console.error('Failed to update scale on reset:', e)
+    }
+  }
 }
 
 onMounted(async () => {
@@ -381,7 +401,7 @@ const cancelCalibration = () => {
 }
 
 const generateScaleDisplay = (scale) => {
-  // 根据当前图片显示尺寸动态计算比例尺条形宽度
+  // 根据当前图片显示尺寸和缩放倍数动态计算比例尺条形宽度
   if (!imgRect.value) {
     // 如果没有图片信息，使用默认值
     const barWidthPx = 100
@@ -395,19 +415,23 @@ const generateScaleDisplay = (scale) => {
 
   // 使用屏幕上显示的 100 像素对应的实际距离
   // 注意：barWidthPx 是屏幕像素，需要转换为原始图片像素来计算实际距离
-  const barWidthScreenPx = 100  // 屏幕上显示 100px 的条形
+  let barWidthScreenPx = 100  // 屏幕上显示 100px 的条形
   
   // 屏幕像素转原始图片像素的缩放因子
   const scaleX = imgRect.value.naturalWidth / imgRect.value.width
   
-  // 100 个屏幕像素在原始图片上对应的像素数
-  const barWidthImagePx = barWidthScreenPx * scaleX
+  // 考虑当前的缩放倍数：图片放大时，同样的屏幕像素在原始图片上占更小的空间
+  // 例如：图片放大2倍，100个屏幕像素实际只对应50个原始图片像素
+  const barWidthImagePx = (barWidthScreenPx / zoom.value) * scaleX
   
   // 计算这些像素对应的实际距离
   const actualLen = (barWidthImagePx / scale.pixelsPerMeter).toFixed(2)
   
+  // 显示的条形宽度也要随放大倍数调整
+  const displayBarWidth = Math.min(barWidthScreenPx * zoom.value, window.innerWidth - 40)
+  
   scaleInfo.value = {
-    barWidth: Math.min(barWidthScreenPx, window.innerWidth - 40),  // 不超过屏幕宽度
+    barWidth: displayBarWidth,
     text: `${actualLen} m`
   }
 }
